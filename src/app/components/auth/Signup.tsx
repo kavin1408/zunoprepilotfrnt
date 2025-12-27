@@ -34,13 +34,8 @@ export function Signup() {
         setError(error.message || 'Failed to create account. Please try again.');
       } else {
         console.log('Signup successful');
-        // Check if email confirmation is required
-        if (data.user && !data.session) {
-          setSuccess('Account created! Please check your email to confirm your account.');
-        } else {
-          setSuccess('Account created successfully!');
-          setTimeout(() => navigate('/onboarding'), 2000);
-        }
+        setSuccess('Account created successfully!');
+        setTimeout(() => navigate('/onboarding'), 2000);
       }
     } catch (err) {
       console.error('Signup exception:', err);
