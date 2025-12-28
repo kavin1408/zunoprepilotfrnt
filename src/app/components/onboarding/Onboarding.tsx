@@ -5,7 +5,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
 import { ChevronRight, ChevronLeft, Loader2 } from 'lucide-react';
-import { supabase } from '../../../lib/supabase';
+import { api } from '../../../lib/api';
 
 export function Onboarding() {
   const navigate = useNavigate();
@@ -26,20 +26,12 @@ export function Onboarding() {
       }
 
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data, error } = await supabase
-            .from('goals')
-            .select('id')
-            .eq('user_id', user.id)
-            .limit(1);
-
-          if (data && data.length > 0) {
-            navigate('/dashboard');
-          }
+        const result = await api.get('/daily-plan');
+        if (result && Array.isArray(result) && result.length > 0) {
+          navigate('/dashboard');
         }
       } catch (error) {
-        console.error("Check existing goals failed:", error);
+        // Probably no goal yet, which is fine
       }
     }
     checkExisting();
@@ -67,42 +59,20 @@ export function Onboarding() {
     if (step < 2) {
       setStep(step + 1);
     } else if (step === 2) {
+      // Submit data to backend before moving to step 3
       setLoading(true);
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('No authenticated user found');
-
         const filteredSkills = skills.filter(s => s.trim() !== '');
-        const defaultTargetDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-        const goalsToInsert = filteredSkills.map(subject => ({
-          user_id: user.id,
-          subject,
-          exam_or_skill: "General Mastery",
+        const result = await api.post('/onboarding', {
+          subjects: filteredSkills,
+          exam_or_skill: "General Mastery", // Defaulting for simple UI
           daily_time_minutes: parseFloat(hoursPerDay) * 60,
-          target_date: targetDate || defaultTargetDate,
-          detected_level: "Beginner" // Default level for direct insert
-        }));
-
-        const { data, error } = await supabase
-          .from('goals')
-          .insert(goalsToInsert)
-          .select();
-
-        if (error) throw error;
-
-        // Mocking the AI response message for the final summary step
-        const resultWithMessages = {
-          goals: data.map(g => ({
-            ...g,
-            message: `Welcome to the grind! Your path for ${g.subject} is ready.`
-          }))
-        };
-
-        setOnboardingResult(resultWithMessages);
+          target_date: targetDate || new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // Default 90 days
+        });
+        setOnboardingResult(result);
         setStep(3);
       } catch (error) {
-        console.error("Onboarding failed:", error);
+        console.error("Onboarding failed", error);
         alert("Failed to save goals. Please try again.");
       } finally {
         setLoading(false);
